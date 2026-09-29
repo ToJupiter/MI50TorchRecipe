@@ -1,0 +1,19 @@
+[project]
+name = "project"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "torch==2.10.0+rocm7.0",
+  "torchvision",
+  "triton-rocm==3.6.0; sys_platform == 'linux'",
+]
+
+[[tool.uv.index]]
+name = "pytorch-rocm"
+url = "https://download.pytorch.org/whl/rocm7.0"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-rocm" }
+torchvision = { index = "pytorch-rocm" }
+triton-rocm = { index = "pytorch-rocm" }
