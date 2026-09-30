@@ -4,7 +4,8 @@ A small, self-contained PyTorch lab for measuring and training on the AMD Radeon
 Pro VII / Radeon Instinct MI50 (Vega 20, `gfx906`) under a ROCm 7.0.2 stack that
 *does not officially support the card*. Everything here was validated on this
 machine, and the repository exists to document the exact configuration that makes
-it work and to record the numbers it produces.
+it work and to record the numbers it produces. For guidelines of how to install
+ROCm 7.0.2 on MI50 / Radeon Pro VII, have a look at [mi50-rocm7](https://github.com/nullkalahar/mi50-rocm7)
 
 - **Benchmark**: matmul sweep (fp32/fp16/bf16), conv2d, H2D/D2H/D2D bandwidth,
   sustained power-clamped run.
