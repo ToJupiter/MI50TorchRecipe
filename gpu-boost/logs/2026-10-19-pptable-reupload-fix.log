@@ -1,0 +1,82 @@
+# 2026-10-19 — recurring DPM0 cap (859 MHz) that survived a true AC cycle,
+#               driver swaps and Windows; fixed by re-uploading the pp_table.
+#
+# Host: Ubuntu 24.04, kernel 6.8.0-147-generic, in-tree amdgpu
+#       (srcversion 14194004E04B80BBA4F990C).
+# Card: card1 / 0000:03:00.0, Vega20 1002:66a1, VBIOS 113-D1640600-104.
+# Times are local wall clock. The RTC/journal on this boot was ~5h49m ahead,
+# so kernel messages appear as 2026-10-20 03:57+.
+
+## Symptom (2026-10-19 22:16, same boot as the successful fix)
+
+== peak sclk=859MHz  peak power=49W
+achieved 5958.08 GFLOP/s fp32 (15.00 s, 2273 launches)
+RESULT: FAIL — SCLK capped at 859MHz.
+
+## Trigger evidence (journal)
+
+2026-10-11 19:27:08  [first wedge, during S3 suspend]
+  psp gfx command UNLOAD_TA(0x2) failed and response status is (0x117)
+  MODE1 reset -> GPU mode1 reset -> psp mode 1 reset failed! -> GPU mode1 reset failed
+  PM: failed to suspend async: error -22
+  PM: suspend entry (s2idle) -> also aborted
+  ring page0 timeout -> GPU reset begin -> all SMU messages returned 0xffffffff
+  GPU Recovery Failed: -62
+
+2026-10-12 21:15:37  [same failure repeated]
+  The system will suspend now!
+  PM: suspend entry (deep)
+  psp gfx command UNLOAD_TA(0x2) failed and response status is (0x117)
+  psp reg (0x16061) wait timed out, read: ffffffff -> psp mode 1 reset failed
+  GPU mode1 reset failed -> GPU Recovery Failed: -62
+
+## What did NOT clear it
+
+- 2026-10-13 22:36  true AC cycle: clean poweroff, PSU switch OFF + AC
+  unplugged, power button held, 120 s wait, boot at 22:38. Still 859 MHz.
+- 2026-10-13/19  DKMS amdgpu 6.14.14 -> in-tree 6.8.0-147 (loaded module
+  /lib/modules/6.8.0-147-generic/kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko.zst,
+  srcversion 14194004E04B80BBA4F990C). Still 859 MHz.
+- Windows: user observed ~77 W in Furmark. The Pro VII vBIOS is locked to
+  190 W and a healthy card draws ~190 W there, so this is the same DPM0
+  state, not a power-supply limitation (verify which GPU/sensor was shown).
+- VBIOS, SMU firmware and pp_table were unchanged:
+    VBIOS (VFCT dump) 526c3dfaeb2f9befeb9542a86a643c88
+    vega20_smc.bin    69e72dea2cf023116b59e2f3fd5e6e6e
+    pp_table          80d94c6ad3d2ce2c449645d7ea8a0bc4 (live == roms/pp_table.bin)
+- No amdgpu errors in dmesg on the affected boots; the SMU simply ignored
+  SetSoftMin/SetSoftMax and auto DPM stayed at level 0.
+
+## Fix (2026-10-19 ~21:5x) — re-upload the card's own pp_table
+
+$ sudo ./gpu-boost/tools/restore-boost.sh --verify
+
+# or manually:
+$ sudo cp /sys/class/drm/card1/device/pp_table /tmp/pp_stock.bin
+$ sudo sh -c 'cat /tmp/pp_stock.bin > /sys/class/drm/card1/device/pp_table'
+$ gpu-boost/tools/verify-boost.sh
+
+The write forces the driver to re-run vega20_init_smc_table and re-arm DPM.
+
+== idle: sclk=860Mhz mclk=350Mhz power=23W junction=46C
+t= 2s busy=99%  sclk=1700Mhz  mclk=350Mhz  power=144W junction=68C
+t= 4s busy=99%  sclk=1700Mhz  mclk=800Mhz  power=145W junction=71C
+t= 7s busy=99%  sclk=1700Mhz  mclk=800Mhz  power=146W junction=73C
+t=12s busy=99%  sclk=1700Mhz  mclk=800Mhz  power=141W junction=76C
+t=15s busy=99%  sclk=1700Mhz  mclk=350Mhz  power=143W junction=77C
+achieved 11753.29 GFLOP/s fp32 (15.00 s, 4484 launches)
+== peak sclk=1700MHz  peak power=151W
+RESULT: PASS — GPU boosts.
+
+## Recurrence (same boot, ~14 minutes of idle, no reboot, no suspend)
+
+2026-10-19 22:16:
+
+== peak sclk=859MHz  peak power=49W
+achieved 5958.08 GFLOP/s fp32 (15.00 s, 2273 launches)
+RESULT: FAIL — SCLK capped at 859MHz.
+
+Conclusion: the pp_table re-upload is a runtime re-arm, not a permanent
+repair. Re-run `tools/restore-boost.sh` when the cap returns (no reboot or
+AC cycle needed). The AC-cycle fix from 2026-09-22 still applies to the
+original latch variant; this one is different.

@@ -1,0 +1,81 @@
+# boost_probe2.sh — second failing pass, 2026-09-22 ~22:08 (BEFORE the AC power cycle)
+# This variant writes "256" to pp_dpm_sclk, which is INVALID (level indices max
+# 31) -> EINVAL, so the force step did nothing. Kept as-run for fidelity.
+# What it did prove:
+#   * out-of-range input is rejected by the kernel (EINVAL),
+#   * with 99% GPU load the SMU still reports 856 MHz / 737 mV,
+#   * the VBIOS can be dumped via debugfs `amdgpu_vbios` (59904 bytes).
+
+### idle before
+--- idle
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+	350 MHz (MCLK)
+	855 MHz (SCLK)
+	1316 MHz (PSTATE_SCLK)
+	1000 MHz (PSTATE_MCLK)
+	743 mV (VDDGFX)
+	18.00 W (current SoC)
+GPU Load: 0 %
+
+### force masks: sclk=256 (BUG: invalid, >31 -> EINVAL), mclk=4 (valid level 2)
+/tmp/opencode/boost_probe2.sh: line 28: printf: write error: Invalid argument
+sclk write rc=1
+/tmp/opencode/boost_probe2.sh: line 29: printf: write error: Invalid argument
+mclk write rc=1
+--- forced (idle)
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+	350 MHz (MCLK)
+	855 MHz (SCLK)
+	1316 MHz (PSTATE_SCLK)
+	1000 MHz (PSTATE_MCLK)
+	743 mV (VDDGFX)
+	18.00 W (current SoC)
+GPU Load: 0 %
+
+### load test 15 s
+device: gfx900:xnack- (60 CUs), 122880 threads, 20000 iters/launch, 15 s
+running...
+--- load t=5s
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+	350 MHz (MCLK)
+	856 MHz (SCLK)
+	1316 MHz (PSTATE_SCLK)
+	1000 MHz (PSTATE_MCLK)
+	737 mV (VDDGFX)          <- voltage sinks slightly under load, still pinned
+	47.00 W (current SoC)
+GPU Load: 99 %               <- SMU sees the load and still does not boost
+
+--- load t=11s
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+	350 MHz (MCLK)
+	856 MHz (SCLK)
+	1316 MHz (PSTATE_SCLK)
+	1000 MHz (PSTATE_MCLK)
+	737 mV (VDDGFX)
+	46.00 W (current SoC)
+GPU Load: 98 %
+achieved 5833.98 GFLOP/s fp32 (15.00 s, 2226 launches)
+burner exit=0
+--- just after load
+	350 MHz (MCLK) / 856 MHz (SCLK) / 743 mV / 18.00 W / GPU Load: 0 %
+
+### restore auto
+--- auto restored
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+	350 MHz (MCLK) / 856 MHz (SCLK) / 743 mV / 18.00 W / GPU Load: 0 %
+
+### dump VBIOS image
+-rw-r--r-- 1 root root 59904 Sep 22 22:08 /tmp/opencode/mi50.rom
+526c3dfaeb2f9befeb9542a86a643c88  /tmp/opencode/mi50.rom
+00000000: 55aa 75e9 0f03 0000 0000 0000 0000 0000
+00000010: 0000 0000 0000 0000 c002 0000 0000 4942
+00000020: 4d92 388e 0000 0000 0000 0000 0000 0004
+00000030: 2037 3631 3239 3535 3230 0000 0000 0000
+# This dump was later compared byte-for-byte with the genuine stock
+# Radeon Pro VII 16GB 200818 image (md5 64d1c521a9fd0ae594e4ca9d9e14f8c7):
+# 3 differing bytes, checksum-neutral (see README section 2, step 5).

@@ -1,0 +1,116 @@
+# boost_probe.sh — failing run, 2026-09-22 ~21:53-21:57 (BEFORE the AC power cycle)
+# Host: Ubuntu 24.04, kernel 6.8.0-139, in-tree amdgpu. Card: card1 / 0000:03:00.0.
+# Transcript curated: amdgpu_pm_info is printed once per DRI alias for the same
+# device (6 paths); only the MI50 dump is kept. UFW log noise omitted.
+
+############ 0. initial state
+
+--- initial
+perf_level=auto
+sclk table:
+    0: 859Mhz *
+    1: 860Mhz
+    2: 1153Mhz
+    3: 1316Mhz
+    4: 1425Mhz
+    5: 1514Mhz
+    6: 1583Mhz
+    7: 1654Mhz
+    8: 1700Mhz
+mclk table:
+    0: 350Mhz *
+    1: 800Mhz
+    2: 1000Mhz
+    power=18 W  temp edge/junc/mem=40/42/42 C  busy=0%
+    rocm-smi: GPU[0] fclk clock level: 0 (550Mhz) | mclk clock level: 0 (350Mhz) |
+              sclk clock level: 0 (859Mhz) | socclk clock level: 0 (309Mhz) |
+              pcie clock level: 1 (8.0GT/s x16)
+
+=== /sys/kernel/debug/dri/0000:03:00.0/amdgpu_pm_info   [MI50, broken state]
+GFX Clocks and Power:
+	350 MHz (MCLK)
+	857 MHz (SCLK)
+	1316 MHz (PSTATE_SCLK)      <- SMU STABLE_PSTATE sensor; unrelated to forcing
+	1000 MHz (PSTATE_MCLK)
+	743 mV (VDDGFX)             <- stuck at MinVoltageGfx (2950/4 mV)
+	18.00 W (current SoC)
+
+GPU Temperature: 41 C
+GPU Load: 0 %
+MEM Load: 0 %
+
+SMC Feature Mask: 0x0000000218f0e2cf
+UVD: Powered down
+VCE: Powered down
+[clock-gating flag list omitted]
+
+=== amdgpu_firmware_info (MI50, relevant lines)
+SMC feature version: 0, program: 0, firmware version: 0x00283c00 (40.60.0)
+VBIOS version: 113-D1640600-104
+
+############ 1. force manual + sclk level 8 (1700 MHz) + mclk level 2 (1000 MHz)
+# NOTE: pp_dpm_*clk takes LEVEL INDICES 0..31 (kernel does *mask |= 1 << level),
+# so "8" is level 8 = 1700 MHz. (This run got the semantics right by accident;
+# see README section 3.6 for the confusion that followed.)
+sclk write OK
+mclk write OK
+
+--- manual + forced level 8/2 (idle)
+perf_level=manual
+sclk table: 0: 859Mhz *        <- SMU did not move
+mclk table: 0: 350Mhz *
+    power=18 W  temp=40/42/42 C  busy=0%
+    rocm-smi: sclk 859, mclk 350, pcie 8.0GT/s x16
+
+############ 2. power_dpm_force_performance_level=high
+
+--- perf=high
+perf_level=high
+sclk table: 0: 859Mhz *        <- still level 0
+mclk table: 0: 350Mhz *
+    power=18 W  temp=41/42/42 C  busy=0%
+
+############ 3. load test under forced state (20 s)
+device: gfx900:xnack- (60 CUs), 122880 threads, 20000 iters/launch, 20 s
+running...
+
+--- load t=4s
+perf_level=high
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+    power=45 W  temp edge/junc/mem=42/48/43 C  busy=98%
+    rocm-smi: sclk 859, mclk 350
+
+--- load t=12s
+perf_level=high
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+    power=43 W  temp edge/junc/mem=44/49/44 C  busy=99%
+    rocm-smi: sclk 859, mclk 350
+achieved 5812.62 GFLOP/s fp32 (20.00 s, 2957 launches)
+burner exit=0
+
+=== amdgpu_pm_info (after load)
+	350 MHz (MCLK)
+	861 MHz (SCLK)
+	1316 MHz (PSTATE_SCLK)
+	1000 MHz (PSTATE_MCLK)
+	743 mV (VDDGFX)
+	18.00 W (current SoC)
+GPU Temperature: 44 C
+GPU Load: 2 %
+
+############ 4. restore auto
+
+--- auto restored
+perf_level=auto
+sclk table: 0: 859Mhz *
+mclk table: 0: 350Mhz *
+    power=18 W  temp=43/44/45 C  busy=0%
+
+############ 5. dump VBIOS ROM
+-rw-r--r-- 1 root root 0 Sep 22 21:57 /tmp/opencode/mi50.rom
+d41d8cd98f00b204e9800998ecf8427e  (empty!)
+# /sys/bus/pci/devices/0000:03:00.0/rom reads 0 bytes: amdgpu fetched the VBIOS
+# from the ACPI VFCT table and disabled the ROM BAR. Use the debugfs blob
+# /sys/kernel/debug/dri/0000:03:00.0/amdgpu_vbios instead (probe2 did).

@@ -1,0 +1,21 @@
+== idle: sclk=860Mhz mclk=350Mhz power=18W junction=43C
+t= 1s busy=0%   sclk=860Mhz   mclk=350Mhz   power= 18W junction=43C
+t= 2s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=144W junction=68C
+t= 3s busy=99%  sclk=1700Mhz  mclk=800Mhz   power=138W junction=69C
+t= 4s busy=99%  sclk=1700Mhz  mclk=800Mhz   power=147W junction=71C
+t= 5s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=143W junction=72C
+t= 6s busy=99%  sclk=1700Mhz  mclk=800Mhz   power=137W junction=72C
+t= 7s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=147W junction=73C
+t= 8s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=142W junction=73C
+t= 9s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=143W junction=74C
+t=10s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=143W junction=74C
+t=11s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=145W junction=75C
+t=12s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=143W junction=75C
+t=13s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=145W junction=75C
+t=14s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=143W junction=76C
+t=15s busy=99%  sclk=1700Mhz  mclk=350Mhz   power=145W junction=77C
+device: gfx900:xnack- (60 CUs), 122880 threads, 20000 iters/launch, 15 s
+running...
+achieved 11765.95 GFLOP/s fp32 (15.00 s, 4489 launches)
+== peak sclk=1700MHz  peak power=147W
+RESULT: PASS — GPU boosts.

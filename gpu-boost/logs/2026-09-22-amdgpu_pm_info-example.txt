@@ -1,0 +1,64 @@
+# amdgpu_pm_info — MI50 (0000:03:00.0), broken state, 2026-09-22
+# Full dump of /sys/kernel/debug/dri/0000:03:00.0/amdgpu_pm_info (root only).
+# The long per-block clock-gating flag list has been collapsed to one line.
+
+GFX Clocks and Power:
+	350 MHz (MCLK)
+	857 MHz (SCLK)
+	1316 MHz (PSTATE_SCLK)      # AMDGPU_PP_SENSOR_STABLE_PSTATE_SCLK
+	1000 MHz (PSTATE_MCLK)
+	743 mV (VDDGFX)
+	18.00 W (current SoC)
+
+GPU Temperature: 41 C
+GPU Load: 0 %
+MEM Load: 0 %
+
+SMC Feature Mask: 0x0000000218f0e2cf
+UVD: Powered down
+VCE: Powered down
+Clock Gating Flags Mask: 0x30b6974f
+	Graphics Fine Grain Clock Gating: Off
+	Graphics Medium Grain Clock Gating: On
+	Graphics Medium Grain memory Light Sleep: On
+	Graphics Coarse Grain Clock Gating: On
+	Graphics Coarse Grain memory Light Sleep: On
+	Graphics Coarse Grain Tree Shader Clock Gating: Off
+	Graphics Coarse Grain Tree Shader Light Sleep: Off
+	Graphics Command Processor Light Sleep: On
+	Graphics Run List Controller Light Sleep: Off
+	Graphics 3D Coarse Grain Clock Gating: On
+	Graphics 3D Coarse Grain memory Light Sleep: On
+	Memory Controller Light Sleep: On
+	Memory Controller Medium Grain Clock Gating: On
+	System Direct Memory Access Light Sleep: On
+	System Direct Memory Access Medium Grain Clock Gating: Off
+	Bus Interface Medium Grain Clock Gating: Off
+	Bus Interface Light Sleep: On
+	Unified Video Decoder Medium Grain Clock Gating: Off
+	Video Compression Engine Medium Grain Clock Gating: Off
+	Host Data Path Light Sleep: On
+	Host Data Path Medium Grain Clock Gating: Off
+	Digital Right Management Medium Grain Clock Gating: Off
+	Digital Right Management Light Sleep: On
+	Rom Medium Grain Clock Gating: On
+	Data Fabric Medium Grain Clock Gating: On
+	VCN Medium Grain Clock Gating: Off
+	Host Data Path Deep Sleep: Off
+	Host Data Path Shutdown: Off
+	Interrupt Handler Clock Gating: Off
+	JPEG Medium Grain Clock Gating: Off
+	Repeater Fine Grain Clock Gating: Off
+	Perfmon Clock Gating: Off
+	Address Translation Hub Medium Grain Clock Gating: On
+	Address Translation Hub Light Sleep: On
+
+# Reading notes:
+#   SCLK 857/856 = DPM level 0 (min). Under 99% load this must rise.
+#   VDDGFX 743 mV = MinVoltageGfx (2950 table units / 4). It must rise to
+#   ~850-1100 mV when boosting; it never did.
+#   GPU Load here is the SMU's AverageGfxActivity metric, not the kernel's
+#   gpu_busy_percent. It reached 98-99% during load -> the SMU saw the load.
+#   PSTATE_SCLK 1316 is the STABLE_PSTATE sensor and stays put regardless of
+#   any pp_dpm_sclk / power_dpm_force_performance_level request. Do not read it
+#   as "the requested level".
