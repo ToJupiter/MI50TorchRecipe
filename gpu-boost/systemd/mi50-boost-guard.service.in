@@ -1,0 +1,26 @@
+# mi50-boost-guard.service.in — systemd unit TEMPLATE.
+# @REPO@ is substituted by systemd/install-guard.sh at install time, so no
+# host-specific path is ever committed to git.
+#
+# Purpose: re-upload the card's own PowerPlay table once at every boot. This
+# re-runs vega20_enable_dpm_tasks() and arms DPM even if the SMU came up in a
+# lazy/parked state. It is cheap and reversible (reboot); it does NOT pin
+# clocks and does NOT touch the VBIOS.
+#
+# NOTE: this resets DPM once during late boot. Do not start GPU jobs until it
+# has finished (a few seconds). Disable it if you prefer to run mi50-fix.sh
+# manually.
+
+[Unit]
+Description=MI50/Vega20 DPM re-arm at boot (PowerPlay table re-upload)
+After=multi-user.target
+ConditionPathExists=/sys/class/drm
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@REPO@/gpu-boost/tools/restore-boost.sh
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

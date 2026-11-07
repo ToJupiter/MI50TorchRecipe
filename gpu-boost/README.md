@@ -1,5 +1,17 @@
 # MI50 / Vega20 boost cap — investigation, root cause, and fix
 
+> **UPDATE 2026-11-07 — this page is the historical log; the authoritative,
+> ordered fix is [`../BOOST_RECOVERY.md`](../BOOST_RECOVERY.md).** The
+> "root cause" paragraph below is superseded: the cap is a **latched SMU
+> firmware state** (software/firmware), not a hardware/power-protection fault,
+> and the earlier hard-DPM driver experiment briefly made it unrecoverable.
+> The confirmed recipe is: stock driver → true cold AC drain (PSU off + unplug,
+> >=5 min) → `sudo tools/restore-boost.sh --verify` → mask suspend + boot guard.
+> Validated: 1700 MHz / 149 W / 10.9 TFLOPS, `RESULT: PASS`.
+> See also [`docs/`](docs/) for the condensed root cause and reference.
+> Everything below is kept for history only; do not follow §0/§2 over the new
+> ordered recipe.
+
 **Symptom.** The card never left DPM level 0: SCLK pinned at **859 MHz** under
 any load, MCLK at 350 MHz, VDDGFX at its minimum (~740 mV), ~45–50 W package
 power instead of ~190 W, ≈ 5.9 TFLOPS FP32 instead of ≈ 13 TFLOPS.
@@ -62,8 +74,8 @@ cd gpu-boost/tools
 
 | Item | Value |
 |---|---|
-| Board | ASUS PRIME B450M-A II, BIOS 3802 |
-| CPU/APU | AMD Cezanne (Renoir family), iGPU `1002:1638` = card2, drives the display |
+| Board | AM4 desktop motherboard (model/BIOS intentionally omitted) |
+| CPU/APU | AMD APU with integrated graphics (`1002:1638`), drives the display |
 | Super-I/O | ITE IT8655E, out-of-tree `it87` DKMS (`bc06d34.20260913`), `hwmon5` |
 | GPU | Vega20 `1002:66a1` rev 06, 60 CU, 16 GB HBM2, "Radeon Pro VII" by VBIOS, **card1 / `0000:03:00.0`**, hwmon1 |
 | GPU VBIOS | `113-D1640600-104`, ver `016.004.000.064.015319`, build 2020-08-18, SSID `1002:081E` |

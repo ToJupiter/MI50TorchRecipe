@@ -19,6 +19,29 @@ ROCm 7.0.2 on MI50 / Radeon Pro VII, have a look at [mi50-rocm7](https://github.
 
 ---
 
+## Boost cap — recovery recipe (read this first if clocks are stuck at 859 MHz)
+
+A failed S3 suspend can latch the Vega20 SMU into a minimum-power state: the
+card stays at **859 MHz / ~45 W** under full load instead of 1700 MHz / ~150 W.
+This is a **software/firmware state problem, not a hardware fault**, and the
+ordered fix is documented here:
+
+- **[`BOOST_RECOVERY.md`](BOOST_RECOVERY.md)** — the confirmed, ordered recipe
+  (stock driver → true cold AC drain → PowerPlay-table re-upload → verify →
+  mask suspend + boot guard). Validated 2026-11-07: 1700 MHz / 149 W /
+  10.9 TFLOPS, `RESULT: PASS`.
+- [`gpu-boost/docs/01-ROOT-CAUSE.md`](gpu-boost/docs/01-ROOT-CAUSE.md) — why it
+  happens (condensed).
+- [`gpu-boost/docs/02-REFERENCE.md`](gpu-boost/docs/02-REFERENCE.md) — PPSMC
+  codes, reset-method enum, wrong turns, FAQ.
+- Tools: [`gpu-boost/tools/`](gpu-boost/tools/) — `verify-boost.sh` (no sudo),
+  `mi50-diagnose.sh` (no sudo), `mi50-fix.sh`, `restore-boost.sh --verify`.
+
+> At idle a healthy Vega20 also reports 859 MHz — always decide with a load
+> test (`gpu-boost/tools/verify-boost.sh`), never an idle clock reading.
+
+---
+
 ## Results snapshot
 
 Measured after a clean boot, DPM in `auto`, 190 W cap. Full tables below.
@@ -318,12 +341,15 @@ see below.
 
 ### Known platform caveat — SMU state and shutdown
 
-On this host, a hard power cut or a process killed mid-GPU-work can leave the SMU
-in a degraded state where DPM boosts are ignored (stuck at the 859 MHz base clock)
-until the machine is fully powered off (PSU switch off + ~60 s power-button
-drain). Avoid `kill -9`/`timeout` on GPU jobs, and check `gpu_busy_percent` and
-`fuser /dev/kfd` before shutting down. This is a firmware/ACPI handoff issue, not
-a configuration error in this project.
+A failed suspend or a hard power cut can latch the SMU into a state where DPM
+boosts are ignored (859 MHz base clock under load). A short power-off is not
+always enough: the reliable recovery is a **true cold AC drain** (PSU off +
+unplug, hold power 10 s, wait >= 5 min) followed by a **PowerPlay-table
+re-upload**. See [`BOOST_RECOVERY.md`](BOOST_RECOVERY.md) for the exact ordered
+procedure and `gpu-boost/tools/mi50-fix.sh` for the one-command software part.
+Avoid `kill -9`/`timeout` on GPU jobs, and mask the suspend targets
+(`systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target`).
+This is a firmware state issue, not a configuration error in this project.
 
 ---
 
